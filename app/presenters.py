@@ -5,6 +5,7 @@ from fastapi import Request
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
+from .i18n import DEFAULT_LANG
 from .models import (
     Activity,
     Certificates,
@@ -19,6 +20,7 @@ from .models import (
     Technology,
 )
 from .storage import media_url
+from .translations import translate
 
 FILE_FIELDS = {"photo", "resume_file", "image", "certification", "file", "photo_overview"}
 
@@ -33,28 +35,60 @@ def iso_z(value: datetime) -> str:
     )
 
 
-def activity_out(activity: Activity) -> dict:
-    return {"title": activity.title, "context": activity.context}
+def _localized(
+    db: Session,
+    request: Request,
+    resource: str,
+    object_id: int,
+    field: str,
+    default: str | None,
+    lang: str,
+) -> str | None:
+    return translate(db, request, resource, object_id, field, default, lang)
 
 
-def home_out(db: Session, request: Request) -> dict:
+def activity_out(activity: Activity, db: Session, request: Request, lang: str) -> dict:
+    return {
+        "title": _localized(db, request, "activities", activity.id, "title", activity.title, lang),
+        "context": _localized(db, request, "activities", activity.id, "context", activity.context, lang),
+    }
+
+
+def home_out(db: Session, request: Request, lang: str = DEFAULT_LANG) -> dict:
     user = db.query(CustomUser).order_by(CustomUser.id).first()
     activities = (
         db.query(Activity).order_by(Activity.order, Activity.id).limit(3).all()
     )
+    if user is None:
+        return {
+            "first_name": "",
+            "last_name": "",
+            "job_title": "",
+            "heading_activity": "",
+            "home_context": "",
+            "off_board": "",
+            "photo": None,
+            "activities": [],
+        }
     return {
-        "first_name": user.first_name if user else "",
-        "last_name": user.last_name if user else "",
-        "job_title": user.job_title if user else "",
-        "heading_activity": user.heading_activity if user else "",
-        "home_context": user.home_context if user else "",
-        "off_board": user.off_board if user else "",
-        "photo": media_url(request, user.photo) if user else None,
-        "activities": [activity_out(activity) for activity in activities],
+        "first_name": _localized(db, request, "home", 0, "first_name", user.first_name, lang),
+        "last_name": _localized(db, request, "home", 0, "last_name", user.last_name, lang),
+        "job_title": _localized(db, request, "home", 0, "job_title", user.job_title, lang),
+        "heading_activity": _localized(
+            db, request, "home", 0, "heading_activity", user.heading_activity, lang
+        ),
+        "home_context": _localized(
+            db, request, "home", 0, "home_context", user.home_context, lang
+        ),
+        "off_board": _localized(db, request, "home", 0, "off_board", user.off_board, lang),
+        "photo": media_url(request, user.photo),
+        "activities": [activity_out(activity, db, request, lang) for activity in activities],
     }
 
 
-def resume_out(resume: Resume | None, request: Request) -> dict:
+def resume_out(
+    db: Session, resume: Resume | None, request: Request, lang: str = DEFAULT_LANG
+) -> dict:
     if resume is None:
         return {
             "location": "",
@@ -68,8 +102,8 @@ def resume_out(resume: Resume | None, request: Request) -> dict:
             "image": None,
         }
     return {
-        "location": resume.location,
-        "summary": resume.summary,
+        "location": _localized(db, request, "resume", 0, "location", resume.location, lang),
+        "summary": _localized(db, request, "resume", 0, "summary", resume.summary, lang),
         "email": resume.email,
         "resume_file": media_url(request, resume.resume_file),
         "website_url": resume.website_url,
@@ -80,49 +114,78 @@ def resume_out(resume: Resume | None, request: Request) -> dict:
     }
 
 
-def education_out(education: Education, request: Request) -> dict:
+def education_out(
+    education: Education, db: Session, request: Request, lang: str = DEFAULT_LANG
+) -> dict:
     return {
         "id": education.id,
-        "field": education.field,
-        "edu_place": education.edu_place,
+        "field": _localized(db, request, "educations", education.id, "field", education.field, lang),
+        "edu_place": _localized(
+            db, request, "educations", education.id, "edu_place", education.edu_place, lang
+        ),
         "from_date": education.from_date.isoformat(),
         "to_date": education.to_date.isoformat(),
-        "what_learnt": education.what_learnt,
+        "what_learnt": _localized(
+            db, request, "educations", education.id, "what_learnt", education.what_learnt, lang
+        ),
         "certification": media_url(request, education.certification),
     }
 
 
-def experience_out(experience: Experience, request: Request) -> dict:
+def experience_out(
+    experience: Experience, db: Session, request: Request, lang: str = DEFAULT_LANG
+) -> dict:
     return {
         "id": experience.id,
-        "job": experience.job,
-        "company": experience.company,
-        "activity": experience.activity,
+        "job": _localized(db, request, "experiences", experience.id, "job", experience.job, lang),
+        "company": _localized(
+            db, request, "experiences", experience.id, "company", experience.company, lang
+        ),
+        "activity": _localized(
+            db, request, "experiences", experience.id, "activity", experience.activity, lang
+        ),
         "from_date": experience.from_date.isoformat(),
         "to_date": experience.to_date.isoformat(),
-        "location": experience.location,
+        "location": _localized(
+            db, request, "experiences", experience.id, "location", experience.location, lang
+        ),
     }
 
 
-def skill_out(skill: Skill) -> dict:
-    return {"name": skill.name}
+def skill_out(skill: Skill, db: Session, request: Request, lang: str = DEFAULT_LANG) -> dict:
+    return {
+        "name": _localized(db, request, "skills", skill.id, "name", skill.name, lang),
+    }
 
 
-def skill_group_out(group: SkillType, request: Request) -> dict:
+def skill_group_out(
+    group: SkillType, db: Session, request: Request, lang: str = DEFAULT_LANG
+) -> dict:
     skills = sorted(group.skills, key=lambda item: (item.order, item.id))
-    return {"name": group.name, "skills": [skill_out(skill) for skill in skills]}
+    return {
+        "name": _localized(db, request, "skill-types", group.id, "name", group.name, lang),
+        "skills": [skill_out(skill, db, request, lang) for skill in skills],
+    }
 
 
 def technology_out(technology: Technology) -> dict:
     return {"id": technology.id, "name": technology.name}
 
 
-def certificate_out(certificate: Certificates, request: Request) -> dict:
+def certificate_out(
+    certificate: Certificates, db: Session, request: Request, lang: str = DEFAULT_LANG
+) -> dict:
     return {
         "id": certificate.id,
-        "name": certificate.name,
-        "issued_by": certificate.issued_by,
-        "what_learnt": certificate.what_learnt,
+        "name": _localized(
+            db, request, "certificates", certificate.id, "name", certificate.name, lang
+        ),
+        "issued_by": _localized(
+            db, request, "certificates", certificate.id, "issued_by", certificate.issued_by, lang
+        ),
+        "what_learnt": _localized(
+            db, request, "certificates", certificate.id, "what_learnt", certificate.what_learnt, lang
+        ),
         "created_at": iso_z(certificate.created_at),
         "link": certificate.link,
         "file": media_url(request, certificate.file),
@@ -133,12 +196,16 @@ def certificate_out(certificate: Certificates, request: Request) -> dict:
     }
 
 
-def project_list_out(project: Project, request: Request) -> dict:
+def project_list_out(
+    project: Project, db: Session, request: Request, lang: str = DEFAULT_LANG
+) -> dict:
     return {
         "id": project.id,
-        "title": project.title,
+        "title": _localized(db, request, "projects", project.id, "title", project.title, lang),
         "slug": project.slug,
-        "summary": project.summary,
+        "summary": _localized(
+            db, request, "projects", project.id, "summary", project.summary, lang
+        ),
         "technologies": [
             technology_out(technology) for technology in project.technologies
         ],
@@ -147,31 +214,39 @@ def project_list_out(project: Project, request: Request) -> dict:
     }
 
 
-def project_detail_out(project: Project, request: Request) -> dict:
-    data = project_list_out(project, request)
-    data["context"] = project.context
+def project_detail_out(
+    project: Project, db: Session, request: Request, lang: str = DEFAULT_LANG
+) -> dict:
+    data = project_list_out(project, db, request, lang)
+    data["context"] = _localized(
+        db, request, "projects", project.id, "context", project.context, lang
+    )
     return data
 
 
-def post_list_out(post: Post) -> dict:
+def post_list_out(
+    post: Post, db: Session, request: Request, lang: str = DEFAULT_LANG
+) -> dict:
     return {
         "id": post.id,
         "slug": post.slug,
-        "title": post.title,
-        "summary": post.summary,
+        "title": _localized(db, request, "posts", post.id, "title", post.title, lang),
+        "summary": _localized(db, request, "posts", post.id, "summary", post.summary, lang),
         "created_at": iso_z(post.created_at),
     }
 
 
-def post_detail_out(post: Post) -> dict:
+def post_detail_out(
+    post: Post, db: Session, request: Request, lang: str = DEFAULT_LANG
+) -> dict:
     return {
         "id": post.id,
-        "title": post.title,
-        "summary": post.summary,
+        "title": _localized(db, request, "posts", post.id, "title", post.title, lang),
+        "summary": _localized(db, request, "posts", post.id, "summary", post.summary, lang),
         "created_at": iso_z(post.created_at),
         "is_published": post.is_published,
         "slug": post.slug,
-        "body": post.body,
+        "body": _localized(db, request, "posts", post.id, "body", post.body, lang),
     }
 
 

@@ -53,6 +53,12 @@ from ..schemas import (
     merge_update,
 )
 from ..storage import media_url, save_upload
+from ..translations import (
+    delete_translations,
+    get_translations,
+    list_translations,
+    save_translations,
+)
 
 router = APIRouter(
     prefix="/api/admin",
@@ -218,6 +224,7 @@ def update_activity(
 @router.delete("/activities/{item_id}")
 def delete_activity(item_id: int, db: Session = Depends(get_db)) -> dict:
     activity = _get_or_404(db, Activity, item_id)
+    delete_translations(db, "activities", activity.id)
     db.delete(activity)
     _commit(db)
     return {"detail": "Deleted."}
@@ -307,6 +314,7 @@ def update_experience(
 @router.delete("/experiences/{item_id}")
 def delete_experience(item_id: int, db: Session = Depends(get_db)) -> dict:
     experience = _get_or_404(db, Experience, item_id)
+    delete_translations(db, "experiences", experience.id)
     db.delete(experience)
     _commit(db)
     return {"detail": "Deleted."}
@@ -355,6 +363,7 @@ def update_education(
 @router.delete("/educations/{item_id}")
 def delete_education(item_id: int, db: Session = Depends(get_db)) -> dict:
     education = _get_or_404(db, Education, item_id)
+    delete_translations(db, "educations", education.id)
     db.delete(education)
     _commit(db)
     return {"detail": "Deleted."}
@@ -411,6 +420,7 @@ def update_skill_type(
 @router.delete("/skill-types/{item_id}")
 def delete_skill_type(item_id: int, db: Session = Depends(get_db)) -> dict:
     row = _get_or_404(db, SkillType, item_id)
+    delete_translations(db, "skill-types", row.id)
     db.delete(row)
     _commit(db)
     return {"detail": "Deleted."}
@@ -463,6 +473,7 @@ def update_skill(
 @router.delete("/skills/{item_id}")
 def delete_skill(item_id: int, db: Session = Depends(get_db)) -> dict:
     skill = _get_or_404(db, Skill, item_id)
+    delete_translations(db, "skills", skill.id)
     db.delete(skill)
     _commit(db)
     return {"detail": "Deleted."}
@@ -526,6 +537,7 @@ def update_certificate(
 @router.delete("/certificates/{item_id}")
 def delete_certificate(item_id: int, db: Session = Depends(get_db)) -> dict:
     row = _get_or_404(db, Certificates, item_id)
+    delete_translations(db, "certificates", row.id)
     db.delete(row)
     _commit(db)
     return {"detail": "Deleted."}
@@ -593,6 +605,7 @@ def update_project(
 @router.delete("/projects/{item_id}")
 def delete_project(item_id: int, db: Session = Depends(get_db)) -> dict:
     row = _get_or_404(db, Project, item_id)
+    delete_translations(db, "projects", row.id)
     db.delete(row)
     _commit(db)
     return {"detail": "Deleted."}
@@ -645,6 +658,7 @@ def update_post(
 @router.delete("/posts/{item_id}")
 def delete_post(item_id: int, db: Session = Depends(get_db)) -> dict:
     row = _get_or_404(db, Post, item_id)
+    delete_translations(db, "posts", row.id)
     db.delete(row)
     _commit(db)
     return {"detail": "Deleted."}
@@ -693,6 +707,7 @@ def update_technology(
 @router.delete("/technologies/{item_id}")
 def delete_technology(item_id: int, db: Session = Depends(get_db)) -> dict:
     row = _get_or_404(db, Technology, item_id)
+    delete_translations(db, "technologies", row.id)
     db.delete(row)
     _commit(db)
     return {"detail": "Deleted."}
@@ -706,3 +721,36 @@ def upload_file(
 ) -> dict:
     path = save_upload(file, folder)
     return {"path": path, "url": media_url(request, path)}
+
+
+@router.get("/translations/{resource}")
+def list_translation_rows(resource: str, db: Session = Depends(get_db)) -> list[dict]:
+    return list_translations(db, resource)
+
+
+@router.get("/translations/{resource}/{object_id}")
+def read_translations(
+    resource: str, object_id: int, db: Session = Depends(get_db)
+) -> dict:
+    return {
+        "resource": resource,
+        "object_id": object_id,
+        "translations": get_translations(db, resource, object_id),
+    }
+
+
+@router.put("/translations/{resource}/{object_id}")
+def update_translations(
+    resource: str,
+    object_id: int,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    data = payload.get("translations", payload)
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="Expected a translations object.")
+    return {
+        "resource": resource,
+        "object_id": object_id,
+        "translations": save_translations(db, resource, object_id, data),
+    }

@@ -11,6 +11,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -73,7 +74,6 @@ certificate_technologies = Table(
 
 class Technology(Base):
     __tablename__ = "projects_technology"
-
     id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
 
@@ -228,4 +228,21 @@ class Certificates(Base):
         secondary=certificate_technologies,
         back_populates="certificates",
         order_by="Technology.id",
+    )
+
+
+class Translation(Base):
+    __tablename__ = "content_translation"
+
+    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True, autoincrement=True)
+    resource: Mapped[str] = mapped_column(String(50), nullable=False)
+    object_id: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    field: Mapped[str] = mapped_column(String(50), nullable=False)
+    lang: Mapped[str] = mapped_column(String(5), nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "resource", "object_id", "field", "lang", name="uq_translation_slot"
+        ),
     )
