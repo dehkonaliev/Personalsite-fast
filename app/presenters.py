@@ -168,8 +168,8 @@ def skill_group_out(
     }
 
 
-def technology_out(technology: Technology) -> dict:
-    return {"id": technology.id, "name": technology.name}
+def technology_out(technology: Technology, db: Session, request: Request, lang: str = DEFAULT_LANG) -> dict:
+    return {"id": technology.id, "name": _localized(db, request, "technologies", technology.id, "name", technology.name, lang)}
 
 
 def certificate_out(
@@ -191,7 +191,7 @@ def certificate_out(
         "file": media_url(request, certificate.file),
         "photo_overview": media_url(request, certificate.photo_overview),
         "technologies": [
-            technology_out(technology) for technology in certificate.technologies
+            technology_out(technology, db, request, lang) for technology in certificate.technologies
         ],
     }
 
@@ -207,7 +207,7 @@ def project_list_out(
             db, request, "projects", project.id, "summary", project.summary, lang
         ),
         "technologies": [
-            technology_out(technology) for technology in project.technologies
+            technology_out(technology, db, request, lang) for technology in project.technologies
         ],
         "github_link": project.github_link,
         "created_at": iso_z(project.created_at),
@@ -277,7 +277,7 @@ def admin_row(
 
 
 def admin_technology_list(technologies: list[Technology]) -> list[dict]:
-    return [technology_out(technology) for technology in technologies]
+    return [{"id": technology.id, "name": technology.name} for technology in technologies]
 
 
 def admin_skill_list(skills: list[Skill]) -> list[dict]:
