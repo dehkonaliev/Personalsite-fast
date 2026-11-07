@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from . import models  # noqa: F401
@@ -15,10 +15,30 @@ settings = get_settings()
 settings.media_root.mkdir(parents=True, exist_ok=True)
 
 
+def _sync_project_columns() -> None:
+    inspector = inspect(engine)
+    if "projects_project" not in inspector.get_table_names():
+        return
+    existing = {column["name"] for column in inspector.get_columns("projects_project")}
+    additions = {
+        "live_link": "VARCHAR(200)",
+        "preview_image": "VARCHAR(100)",
+    }
+    missing = {name: ddl for name, ddl in additions.items() if name not in existing}
+    if not missing:
+        return
+    with engine.begin() as connection:
+        for name, ddl in missing.items():
+            connection.execute(
+                text(f"ALTER TABLE projects_project ADD COLUMN {name} {ddl}")
+            )
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     if settings.auto_create_tables:
         Base.metadata.create_all(bind=engine)
+        _sync_project_columns()
     yield
 
 

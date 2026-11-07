@@ -22,7 +22,15 @@ from .models import (
 from .storage import media_url
 from .translations import translate
 
-FILE_FIELDS = {"photo", "resume_file", "image", "certification", "file", "photo_overview"}
+FILE_FIELDS = {
+    "photo",
+    "resume_file",
+    "image",
+    "certification",
+    "file",
+    "photo_overview",
+    "preview_image",
+}
 
 
 def iso_z(value: datetime) -> str:
@@ -210,6 +218,8 @@ def project_list_out(
             technology_out(technology, db, request, lang) for technology in project.technologies
         ],
         "github_link": project.github_link,
+        "live_link": project.live_link,
+        "preview_image": media_url(request, project.preview_image),
         "created_at": iso_z(project.created_at),
     }
 

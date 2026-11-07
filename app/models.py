@@ -95,6 +95,8 @@ class Project(Base):
     )
     summary: Mapped[str] = mapped_column(String(500), nullable=False)
     github_link: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    live_link: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    preview_image: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     slug: Mapped[str] = mapped_column(String(500), unique=True, nullable=False)
     context: Mapped[str] = mapped_column(Text, nullable=False, default="")

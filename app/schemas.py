@@ -100,6 +100,8 @@ class ProjectBase(BaseModel):
     title: str = Field(max_length=500)
     summary: str = Field(max_length=500)
     github_link: str | None = Field(default=None, max_length=200)
+    live_link: str | None = Field(default=None, max_length=200)
+    preview_image: str | None = Field(default=None, max_length=100)
     is_published: bool = False
     slug: str = Field(default="", max_length=500)
     context: str = ""
